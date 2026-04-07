@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  analyst
+  responder
+  admin
+}
+
+enum IncidentSeverity {
+  critical
+  high
+  medium
+  low
+}
+
+enum IncidentStatus {
+  open
+  investigating
+  contained
+  resolved
+  closed
+}
+
+enum AssetCriticality {
+  critical
+  high
+  medium
+  low
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password_hash String
+  name          String
+  role          UserRole
+  created_at    DateTime  @default(now())
+
+  incidents_reported  Incident[] @relation("ReportedBy")
+  incidents_assigned  Incident[] @relation("AssignedTo")
+  audit_logs          AuditLog[]
+}
+
+model Incident {
+  id           String            @id @default(uuid())
+  title        String
+  description  String
+  severity     IncidentSeverity
+  status       IncidentStatus
+  reported_by  String
+  assigned_to  String?
+  created_at   DateTime          @default(now())
+  updated_at   DateTime          @updatedAt
+  resolved_at  DateTime?
+
+  reporter     User              @relation("ReportedBy", fields: [reported_by], references: [id])
+  assignee     User?             @relation("AssignedTo", fields: [assigned_to], references: [id])
+  alerts       Alert[]
+  incident_assets IncidentAsset[]
+}
+
+model Alert {
+  id                String   @id @default(uuid())
+  source            String
+  type              String
+  raw_payload       Json
+  incident_id       String
+  is_false_positive Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  incident Incident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+}
+
+model Asset {
+  id          String           @id @default(uuid())
+  hostname    String
+  ip_address  String
+  type        String
+  owner       String
+  criticality AssetCriticality
+
+  incident_assets IncidentAsset[]
+}
+
+model IncidentAsset {
+  incident_id String
+  asset_id    String
+
+  incident Incident @relation(fields: [incident_id], references: [id], onDelete: Cascade)
+  asset    Asset    @relation(fields: [asset_id], references: [id], onDelete: Cascade)
+
+  @@id([incident_id, asset_id])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  user_id     String?
+  action      String
+  target_type String
+  target_id   String?
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+}
