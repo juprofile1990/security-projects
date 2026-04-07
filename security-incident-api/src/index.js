@@ -1,7 +1,11 @@
 require("dotenv").config();
+if (process.env.NODE_ENV !== "test") {
+  require("dotenv").config({ path: ".env.local", override: true });
+}
 
 const express = require("express");
 const helmet = require("helmet");
+const cors = require("cors");
 const { checkExact } = require("express-validator");
 
 const { errorHandler } = require("./middleware/errorHandler");
@@ -20,6 +24,11 @@ function buildApp() {
   const app = express();
 
   app.use(helmet());
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || "*",
+    methods: ["GET", "POST", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }));
   app.use(express.json({ limit: "1mb" }));
 
   app.use(auditLogMiddleware());
