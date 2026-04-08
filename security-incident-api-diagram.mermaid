@@ -1,0 +1,33 @@
+flowchart TD
+    Client(["🖥️ Client\n(curl / frontend app)"])
+
+    subgraph Express Server
+        direction TB
+        Routes["📋 Routes\n/auth  /incidents\n/alerts  /assets  /audit-logs"]
+        Auth["🔐 Auth Middleware\nVerifies JWT token"]
+        RBAC["🛡️ RBAC Middleware\nChecks role:\nanalyst / responder / admin"]
+        Controllers["⚙️ Controllers\nBusiness logic"]
+        AuditLog["📝 Audit Log Middleware\nRecords who did what"]
+    end
+
+    DB[("🗄️ PostgreSQL\n(Supabase)\n\nUsers\nIncidents\nAlerts\nAssets\nAudit Logs")]
+
+    Client -->|"HTTP Request\n+ Bearer token"| Routes
+    Routes --> Auth
+    Auth -->|"Token valid"| RBAC
+    RBAC -->|"Role permitted"| Controllers
+    Controllers --> AuditLog
+    Controllers <-->|"Read / Write via Prisma ORM"| DB
+    AuditLog -->|"Write log entry"| DB
+    Auth -->|"❌ 401 Unauthorized"| Client
+    RBAC -->|"❌ 403 Forbidden"| Client
+    Controllers -->|"✅ JSON Response"| Client
+
+    subgraph Roles
+        direction LR
+        Analyst["👁️ Analyst\nRead only"]
+        Responder["🔧 Responder\nRead + Write incidents"]
+        Admin["👑 Admin\nFull access incl. audit logs"]
+    end
+
+    RBAC -.->|enforces| Roles

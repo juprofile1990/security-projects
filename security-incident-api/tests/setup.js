@@ -1,4 +1,7 @@
 require("dotenv").config();
+if (process.env.NODE_ENV !== "test") {
+  require("dotenv").config({ path: ".env.local", override: true });
+}
 
 if (!process.env.DATABASE_URL) {
   console.warn("DATABASE_URL is not set; integration tests will fail.");
