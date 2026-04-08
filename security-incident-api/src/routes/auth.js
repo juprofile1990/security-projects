@@ -3,6 +3,8 @@ const { body } = require("express-validator");
 const rateLimit = require("express-rate-limit");
 const authController = require("../controllers/authController");
 const { validateRequest } = require("../middleware/validateRequest");
+const { requireAuth } = require("../middleware/auth");
+const { requireAdmin } = require("../middleware/rbac");
 
 const router = express.Router();
 
@@ -14,8 +16,11 @@ const authLimiter = rateLimit({
   message: { error: "Too many authentication attempts, try again later." },
 });
 
+// Registration is admin-only — requires a valid JWT with admin role.
 router.post(
   "/register",
+  requireAuth(),
+  requireAdmin,
   authLimiter,
   body("email").isEmail().normalizeEmail(),
   body("password")
@@ -37,6 +42,7 @@ router.post(
       return true;
     }),
   body("name").trim().isLength({ min: 1, max: 120 }),
+  body("role").optional().isIn(["analyst", "responder", "admin"]),
   validateRequest,
   authController.register
 );

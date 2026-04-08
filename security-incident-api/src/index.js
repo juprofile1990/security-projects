@@ -6,6 +6,7 @@ if (process.env.NODE_ENV !== "test") {
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 const { checkExact } = require("express-validator");
 
 const { errorHandler } = require("./middleware/errorHandler");
@@ -20,16 +21,28 @@ const auditLogsRoutes = require("./routes/auditLogs");
 
 const PORT = Number(process.env.PORT) || 3000;
 
+// Global rate limiter — 300 requests per 15 min per IP across all routes.
+// Auth routes have their own tighter limiter (10 per 15 min) on top of this.
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "test" ? 10000 : 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+});
+
 function buildApp() {
   const app = express();
 
   app.use(helmet());
   app.use(cors({
-    origin: process.env.CORS_ORIGIN || "*",
+    // Lock CORS to your GitHub Pages domain. Override via CORS_ORIGIN env var for local dev.
+    origin: process.env.CORS_ORIGIN || "https://juprofile1990.github.io",
     methods: ["GET", "POST", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }));
   app.use(express.json({ limit: "1mb" }));
+  app.use(globalLimiter);
 
   app.use(auditLogMiddleware());
 
