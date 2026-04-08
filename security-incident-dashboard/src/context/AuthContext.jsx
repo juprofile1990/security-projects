@@ -10,20 +10,49 @@ import { API_BASE } from "../lib/constants";
 
 const AuthContext = createContext(null);
 
+const SESSION_TOKEN_KEY = "ic_token";
+const SESSION_USER_KEY  = "ic_user";
+
+function readSession() {
+  try {
+    const token = sessionStorage.getItem(SESSION_TOKEN_KEY);
+    const user  = JSON.parse(sessionStorage.getItem(SESSION_USER_KEY) || "null");
+    return { token, user };
+  } catch {
+    return { token: null, user: null };
+  }
+}
+
+function writeSession(token, user) {
+  try {
+    if (token) {
+      sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+      sessionStorage.setItem(SESSION_USER_KEY, JSON.stringify(user));
+    } else {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      sessionStorage.removeItem(SESSION_USER_KEY);
+    }
+  } catch { /* ignore */ }
+}
+
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+
+  // Seed state from sessionStorage so a page refresh restores the session.
+  const [token, setToken] = useState(() => readSession().token);
+  const [user,  setUser]  = useState(() => readSession().user);
 
   const handleUnauthorized = useCallback(() => {
     setToken(null);
     setUser(null);
+    writeSession(null, null);
     navigate("/login", { replace: true });
   }, [navigate]);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
+    writeSession(null, null);
     navigate("/login", { replace: true });
   }, [navigate]);
 
@@ -43,6 +72,7 @@ export function AuthProvider({ children }) {
     }
     setToken(data.token);
     setUser(data.user);
+    writeSession(data.token, data.user);
   }, []);
 
   const apiRequest = useCallback(
@@ -70,8 +100,7 @@ export function AuthProvider({ children }) {
       const res = await fetch(`${API_BASE}${path}`, {
         method,
         headers,
-        body:
-          isJsonBody ? JSON.stringify(body) : body === undefined ? undefined : body,
+        body: isJsonBody ? JSON.stringify(body) : body === undefined ? undefined : body,
       });
 
       if (res.status === 401) {
